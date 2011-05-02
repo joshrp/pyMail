@@ -7,4 +7,5 @@ class account:
                 addr = address(addr)
             except e:
                 raise e
-         print db.queue.find()[0]
+        
+    

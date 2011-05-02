@@ -25,8 +25,7 @@ class queue:
         })
         self.saveState()
         print 'New Item in Queue: From %s To %s' % (msg._from, msg._to)
-       
-        self.saveState()
+        self.startLoop()
         
     def startLoop(self):
         print 'Starting Loop'
@@ -36,27 +35,34 @@ class queue:
         d.addErrback(err)     
         return d
         
-    def deliverQueue(self):        
+    def deliverQueue(self): 
+        i = 0       
         for q in self.queue:
-            print 'Processing: %s' % (q['message']._from)
+            print 'Processing: %s' % (q['message']._from)	
             if ( q['reAttempt'] < time.time() and q['reAttempt'] != 0 ):
                 continue            
-            res = self.delivery.attempt(q['message'])
+            res = self.delivery.attempt(q['message'], i)
             res.addCallback(self.messageSuccess)
             res.addErrback(self.messageFailure)
+            i = i + 1
+        self.saveState()
     
     def messageSuccess(self, args):
-        message, note = args
-        print 'WIIIIIIN : from %s to %s \nDelivery note: %s' % (message._from, message._to, note)
+        id, message, queueId = args
+        self.queue.pop(queueId)
+        print 'WIIIIIIN : from %s to %s \nMessage ID: %s' % (message['_from'], message['_to'], id)
         
     def messageFailure(self, message):
-        print 'ZOMG FAAAAIL: from %s to %s' % (message._from, message._to)
+        print message
+        print 'ZOMG FAAAAIL: from %s to %s' % (message['_from'], message['_to'])
     
     def restore(self):
-        for m in self.db.find({}).sort([['added', pymongo.ASCENDING], ['attempt.time', pymongo.ASCENDING]]):
-            m['message'] = cPickle.loads( str( m['message'] ) )
+
+        for m in self.db.find().sort([['added', pymongo.ASCENDING], ['attempt.time', pymongo.ASCENDING]]):
+            m['message'] = cPickle.loads( str(m['message']) )            
             m['reAttempt'] = 0
             self.queue.append(m)
+            
         print 'Restored Queue from db state'
         print '%s Total Queued Items ' % (len(self.queue))
         self.startLoop()
@@ -66,8 +72,13 @@ class queue:
             db = self.db
         db.remove()
         lst = []
-        for m in self.queue[:]:
-            m['message'] = cPickle.dumps(m['message'])
-            lst.append(m)
-        db.insert(lst)
+        #print type(self.queue[0]['message'])
+        """Make full copy of OBJECT and list so nothing in the queue is altered"""
+        for m in range(len(self.queue)):
+            obj = dict(self.queue[m])
+            obj['message'] = cPickle.dumps(obj['message'])
+            lst.append(obj)
+        #print type(self.queue[0]['message'])
+        if len(lst) > 0:
+            db.insert(lst)
     

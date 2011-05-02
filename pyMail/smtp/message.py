@@ -1,3 +1,4 @@
+from address import Address
 class messageTransport:
     """Provides access and helpers to a message that is in transport
         These are only composed of 
@@ -6,10 +7,11 @@ class messageTransport:
         _body: main text body and (currently) attachments
         _headers: [] of headers split for each one
     """
-    def __init__(self, _from=None, _to=None):
+    def __init__(self, _from=None, _to=None, helo=''):
         if _from is None or _to is None:
             raise('No sender and Receiver!?')
         self.data = []
+        self.helo = helo
         self.headers = []
         self._from = _from
         self._to = _to
@@ -37,16 +39,18 @@ class messageTransport:
     def __getstate__(self):
         return {
             'data': self.data,
-            'to': self._to,
-            'from': self._from,
-            'headers': self.headers
+            'to': self._to.fullAddress,
+            'from': self._from.fullAddress,
+            'headers': self.headers,
+            'helo': self.helo
         }
     
     def __setstate__(self, obj):
         self.data = obj['data']
-        self._to = obj['to']
-        self._from = obj['from']
+        self._to = Address(obj['to'])
+        self._from = Address(obj['from'])
         self.headers = obj['headers']
-        print self._to
+        self.helo = obj['helo']
+        
 class message:
     pass

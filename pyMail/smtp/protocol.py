@@ -1,6 +1,7 @@
 from twisted.protocols import basic
 from twisted.internet import protocol
 from message import messageTransport
+from address import Address
 
 class SMTPProtocol(basic.LineOnlyReceiver):    
     
@@ -34,34 +35,33 @@ class SMTPProtocol(basic.LineOnlyReceiver):
             self.sendCode(500, 'Command Not Implemented')
             
     def do_EHLO(self, args):
+        self.helo = ' '.join(args)
         self.sendCode(250, '%s - %s \n' % (self.settings['welcome'], ' '.join(args))) 
         
     def do_QUIT(self, args):
         self.sendCode(221, "Goodbye!!\n\n")
         self.transport.loseConnection()       
     
-    def do_MAIL(self, args):
-        
-        splits = args[0].split(':')
-        
+    def do_MAIL(self, args):        
+        splits = args[0].split(':')        
         if (splits[0] == 'FROM'):
             """TODO:: Mail from check"""
-            self._from = splits[1]
-        self.sendCode(250, 'Ok Sending as from ' + self._from + '\n')
+            self._from = Address(splits[1])
+        print type(str(self._from))
+        self.sendCode(250, 'Ok Sending as from %s \n' % (self._from))
     
     def do_RCPT(self, args):
-
         splits = args[0].split(':')
         if ( splits[0] == 'TO' ):
             """TODO::check rcpt agaist domains and whatnot"""
-            self._to =  splits[1] 
-        self.sendCode(250, 'Ok ' + self._to + ' Added to Receipient list \n')
+            self._to =  Address(splits[1]) 
+        self.sendCode(250, 'Ok %s Added to Receipient list \n' % (self._to))
         
     
     def do_DATA(self, args):
         if self._from is not None and self._to is not None:
             self.mode = 'DATA'
-            self.message = messageTransport(self._from, self._to)
+            self.message = messageTransport(self._from, self._to, self.helo)
             self.sendCode(354, 'End data with <CR><LF>.<CR><LF>\n')
         else:
             self.sendCode(503, 'Need to have Valid MAIL FROM and RCPT TO')

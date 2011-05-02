@@ -4,13 +4,19 @@ class deliveryAgent:
     def __init__(self, db):
         self.db = db          
        
-    def attempt(self, message):
+    def attempt(self, message, passThruId):
         d = defer.Deferred() 
         if ( message.isLocal() ):
             #....it's HERE!
-            if (message._to == '<paystey2k5@gmail.com>'):
-                d.callback([message, 'ZOMG I KNOW HIM!!!'])
-                
+            newid = self.db.save({
+                'body': message.getBody(),
+                'headers': message.headers,
+                '_to': message._to.fullAddress,
+                '_from': message._from.fullAddress,
+                'helo': message.helo,
+            })
+            if newid is not None:
+                reactor.callLater(3, d.callback, [newid, self.db.find({'_id': newid})[0], passThruId])
         else:
             #.....it's remote?
             pass
