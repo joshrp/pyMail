@@ -6,6 +6,7 @@ class database:
     def instance(): 
         s = database
         if s.conn is None or s.db is None:
+            print 'I just recconected to the DB'
             s.conn = Connection()
             s.db = s.conn.pymail
             
