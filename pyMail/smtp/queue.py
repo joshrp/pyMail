@@ -28,17 +28,19 @@ class queue:
         self.startLoop()
         
     def startLoop(self):
-        print 'Starting Loop'
-        d = threads.deferToThread(self.deliverQueue)   
-        def err(x):
-            print x
-        d.addErrback(err)     
-        return d
+        if len(self.queue) > 0:
+          print 'Starting Loop'
+          d = threads.deferToThread(self.deliverQueue)   
+          def err(x):
+              print x
+          d.addErrback(err)     
+          return d
+        return True
         
     def deliverQueue(self): 
-        i = 0       
+        i = 0      
         for q in self.queue:
-            print 'Processing: %s' % (q['message']._from)	
+            print 'Processing: Queue Item %s from %s' % (i, q['message']._from)	
             if ( q['reAttempt'] < time.time() and q['reAttempt'] != 0 ):
                 continue            
             res = self.delivery.attempt(q['message'], i)
@@ -48,10 +50,10 @@ class queue:
         self.saveState()
     
     def messageSuccess(self, args):
-        id, message, queueId = args
-        self.queue.pop(queueId)
+        id, message, queueId = args        
+        print self.queue.pop(queueId)
         print 'WIIIIIIN : from %s to %s \nMessage ID: %s' % (message['_from'], message['_to'], id)
-        
+        self.saveState()
     def messageFailure(self, message):
         print message
         print 'ZOMG FAAAAIL: from %s to %s' % (message['_from'], message['_to'])

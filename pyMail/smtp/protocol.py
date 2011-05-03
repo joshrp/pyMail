@@ -93,4 +93,3 @@ class factory(protocol.ServerFactory):
         p.portal = self.portal
         p.queue = self.queue
         return p
-    
