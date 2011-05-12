@@ -3,7 +3,7 @@ from twisted.internet import protocol
 from message import messageTransport
 from address import Address
 
-class SMTPProtocol(basic.LineOnlyReceiver):    
+class serverProtocol(basic.LineOnlyReceiver):    
     
     def connectionMade(self):
         self.fulldata = []
@@ -80,8 +80,8 @@ class SMTPProtocol(basic.LineOnlyReceiver):
         self.message.addLine(data)
 
         
-class factory(protocol.ServerFactory):
-    protocol = SMTPProtocol
+class serverFactory(protocol.ServerFactory):
+    protocol = serverProtocol
     def __init__(self, settings, queue, portal=None):
         self.settings = settings
         self.portal = portal
@@ -93,3 +93,10 @@ class factory(protocol.ServerFactory):
         p.portal = self.portal
         p.queue = self.queue
         return p
+
+class clientProtocol:
+    def __init__(self):
+        pass
+
+class clientFactory:
+    protocol = clientProtocol
