@@ -11,7 +11,7 @@ class serverProtocol(basic.LineOnlyReceiver):
         self.mode = 'COMMAND'
         print 'Connection Received from: %s on Port %s' % (self.transport.getPeer().host, self.transport.getPeer().port)
         
-        self.transport.write('220 mail.dev.com ESMTP pyMail\n')
+        self.sendCode(220, 'mail.dev.com ESMTP pyMail')
         #self.transport.loseConnection()
     
     def lineReceived(self, line):
@@ -21,12 +21,19 @@ class serverProtocol(basic.LineOnlyReceiver):
         func(line)
             
     def sendCode(self, code, message):
-        resp = '%s - %s' % (code, message)
+        resp = '%s - %s\n' % (code, message)
         self.transport.write(resp)
         print 'S: : %s' % (resp)
         
     def state_COMMAND(self, command):
         """Called when awaiting new command form client"""
+        if command.strip() == '':
+            self.consecutiveErrors = self.consecutiveErrors + 1;
+            if self.consecutiveErrors == 10:
+                self.sendCode(221, 'Too Many Consectutive Protocol Errors (Your talking shit, Go Away)')
+                self.do_QUIT()
+            return False;
+        self.consecutiveErrors = 0
         splits = command.split(None)
         method = getattr(self, 'do_' + splits[0].upper(), None)
         if method is not None:
@@ -36,33 +43,38 @@ class serverProtocol(basic.LineOnlyReceiver):
             
     def do_EHLO(self, args):
         self.helo = ' '.join(args)
-        self.sendCode(250, '%s - %s \n' % (self.settings['welcome'], ' '.join(args))) 
+        self.sendCode(250, '%s - %s' % (self.settings['welcome'], ' '.join(args))) 
         
     def do_QUIT(self, args):
-        self.sendCode(221, "Goodbye!!\n\n")
+        self.sendCode(221, "Goodbye!!")
         self.transport.loseConnection()       
     
     def do_MAIL(self, args):        
         splits = args[0].split(':')        
-        if (splits[0] == 'FROM'):
+        if (splits[0].upper() == 'FROM'):
             """TODO:: Mail from check"""
             self._from = Address(splits[1])
         print type(str(self._from))
-        self.sendCode(250, 'Ok Sending as from %s \n' % (self._from))
+        self.sendCode(250, 'Ok Sending as from %s' % (self._from))
     
     def do_RCPT(self, args):
         splits = args[0].split(':')
         if ( splits[0] == 'TO' ):
             """TODO::check rcpt agaist domains and whatnot"""
-            self._to =  Address(splits[1]) 
-        self.sendCode(250, 'Ok %s Added to Receipient list \n' % (self._to))
+            addr = Address(splits[1])
+            valid, reason = addr.isValidEmail()
+            if not valid:
+                self.sendCode(500, 'Unnaccepted: Not a valid Address %s' % reason)
+            else:
+                self._to = addr 
+                self.sendCode(250, 'Ok %s Added to Receipient list' % (self._to))
         
     
     def do_DATA(self, args):
         if self._from is not None and self._to is not None:
             self.mode = 'DATA'
             self.message = messageTransport(self._from, self._to, self.helo)
-            self.sendCode(354, 'End data with <CR><LF>.<CR><LF>\n')
+            self.sendCode(354, 'End data with <CR><LF>.<CR><LF>')
         else:
             self.sendCode(503, 'Need to have Valid MAIL FROM and RCPT TO')
             
@@ -70,7 +82,7 @@ class serverProtocol(basic.LineOnlyReceiver):
         """Called on new lines when in DATA mode"""
         if data == '.':
             self.mode = 'COMMAND'
-            self.sendCode(250, " OK Queued as some message I'll neer deliver :)\n")
+            self.sendCode(250, " OK Queued as some message I'll neer deliver :)")
             self.queue.add(self.message)
             return
         """remove buffed periods"""        
