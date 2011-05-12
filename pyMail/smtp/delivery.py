@@ -16,7 +16,10 @@ class deliveryAgent:
                 'helo': message.helo,
             })
             if newid is not None:
-                reactor.callLater(3, d.callback, [newid, self.db.find({'_id': newid})[0], passThruId])
+                d.callback([newid, self.db.find({'_id': newid})[0], passThruId])
+            else:
+                #uh ph
+                pass
         else:
             #.....it's remote?
             pass

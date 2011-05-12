@@ -13,12 +13,12 @@ if ( settings['services']['smtp']['on'] ):
     queue = queue.queue(db.queue, deliv)    
     queue.restore()   
     
-    reactor.listenTCP(settings['services']['smtp']['port'], protocol.factory(settings['services']['smtp'], queue))
+    reactor.listenTCP(settings['services']['smtp']['port'], protocol.serverFactory(settings['services']['smtp'], queue))
     
 if ( settings['services']['smtps']['on'] ):    
-    reactor.listenSSL(settings['services']['smtps']['port'], protocol.factory(settings['services']['smtps'], queue))
+    reactor.listenSSL(settings['services']['smtps']['port'], protocol.serverFactory(settings['services']['smtps'], queue))
 
-if ( settings['services']['imap']['on'] ):    
-    reactor.listenTCP(settings['services']['imap']['port'], protocol.factory(settings['services']['imap'], queue))
+#if ( settings['services']['imap']['on'] ):    
+    #reactor.listenTCP(settings['services']['imap']['port'], protocol.factory(settings['services']['imap'], queue))
     
 reactor.run()

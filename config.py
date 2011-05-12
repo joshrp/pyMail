@@ -5,7 +5,21 @@ settings = {
                 {
                     'on': True,
                     'welcome': 'Hai Guyz!',
-                    'port': 25 #default = 25
+                    'port': 25, #default = 25
+                    'events':{
+                        'beforeDelivery':[],
+                        'afterDelivery':[],
+                        'beforeLocalDelivery':[],
+                        'afterLocalDelivery':[],
+                        'beforeRemoteDelivery':[],
+                        'afterRemoteDelivery':[],
+                        'onHelo':[],
+                        'afterHelo':[],
+                        'onMail':[],
+                        'afterMail':[],
+                        'onRcpt':[],
+                        'afterRcpt':[],
+                    }
                 },
             'smtps':
                 {
