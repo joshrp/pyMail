@@ -23,11 +23,12 @@ settings = {
                 },
             'smtps':
                 {
-                    'on': False
+                    'on': False,
+                    'port': 867
                 },
             'imap':
                 {
-                    'on': True,
+                    'on': False,
                     'port': 143
                 },
         },

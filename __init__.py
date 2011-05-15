@@ -18,7 +18,7 @@ if ( settings['services']['smtp']['on'] ):
 if ( settings['services']['smtps']['on'] ):    
     reactor.listenSSL(settings['services']['smtps']['port'], protocol.serverFactory(settings['services']['smtps'], queue))
 
-#if ( settings['services']['imap']['on'] ):    
-    #reactor.listenTCP(settings['services']['imap']['port'], protocol.factory(settings['services']['imap'], queue))
+if ( settings['services']['imap']['on'] ):    
+    reactor.listenTCP(settings['services']['imap']['port'], protocol.factory(settings['services']['imap'], queue))
     
 reactor.run()
