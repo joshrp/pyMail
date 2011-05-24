@@ -1,5 +1,5 @@
 from twisted.protocols import basic
-from twisted.internet import protocol, reactor
+from twisted.internet import protocol, reactor, defer
 from message import messageTransport
 from address import Address
 
@@ -108,15 +108,36 @@ class serverFactory(protocol.ServerFactory):
 
 class clientProtocol(basic.LineOnlyReceiver):
 	def connectionMade(self):
+		self._expected = [250]
+		self._goodResponse = self.do_helo
+		self._badResponse = self.no_helo
 		print 'has connection to %s' % self.transport.getPeer().host
 		
 	def LineReceived(self, line):
 		print ('hai')
+	
+	def connectionFailed(self):
+		print ('sdfasdf')
 
-class clientFactory(protocol.ClientFactory):
+class ESMTPSender(protocol.ClientFactory):
 	protocol = clientProtocol
 	
-class ESMTPSender:
+	def __init__(self, d):
+		self.d = d		
+		
+	def buildProtocol(self, addr):
+		p = protocol.ServerFactory.buildProtocol(self, addr)
+		print 'BUILDING PROTOCOL'
+		p.d = self.d
+		return p
+		
+	def messageFailed(self, msg):
+		self.d.errBack(msg)
+		
+	def messageDelivered(self):
+		self.d.callback(':)')
+	
+class Sender:
 	def __init__(self):
 		self._to = []
 		pass
@@ -125,4 +146,8 @@ class ESMTPSender:
 		self._to.append(arg) 
 	
 	def send(self, host):
-		reactor.connectTCP(host, 25, clientFactory(), 3)
+		d = defer.Deferred()
+		print host
+		print reactor.connectTCP(host, 25, ESMTPSender(d), 3)
+		return d
+

@@ -1,5 +1,10 @@
 from pyMail.smtp import protocol
 
-mail = protocol.ESMTPSender()
+mail = protocol.Sender()
 
-print mail.send('mail.google.com')
+d = mail.send('mail.google.com')
+def printmeh(res):
+	print res
+	
+d.addCallback(printmeh)
+
