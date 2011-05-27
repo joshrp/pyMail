@@ -1,3 +1,20 @@
+Main Objective:
+A simple email stack that can be configured simply and intuitivly and deployed
+quickly with the most common feature set:
+    SMTP(AUTH, Signing)
+    IMAP(Fast, Customizable for proprietry client, cached)
+    POP(.....simple)
+    Virtual Domains (single domain instances know no difference)
+
+Current State:
+
+pyMail can receive local mail ('dev.com') and remote mail (anywhere)
+it resolves and retrives the highest preference mail server for remotes
+and delivers with its client. features are basic as this is pre pre pre(^100) 
+alpha stage and getting SMTP sending and receiving working was the priority.
+
+It stores local mail in MongoDB.
+
 pyMail expects to be able to import:
     pyMongo (and therefore mongoDB obv.)
     dns (dnspython.org for resolving MX records for domains

@@ -1,3 +1,4 @@
 
 *.pyc
 /mongo
+/dnspython-1.9.4
