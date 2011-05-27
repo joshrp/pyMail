@@ -1,0 +1,6 @@
+pyMail expects to be able to import:
+    pyMongo (and therefore mongoDB obv.)
+    dns (dnspython.org for resolving MX records for domains
+    
+whether these are in the directory or in PYTHONPATH is irrelevent 
+and better configurations for db's are in the works
