@@ -21,14 +21,6 @@ if ( settings['services']['smtps']['on'] ):
 if ( settings['services']['imap']['on'] ):	
 	reactor.listenTCP(settings['services']['imap']['port'], protocol.factory(settings['services']['imap'], queue))
 
-mail = protocol.Sender()
-
-d = mail.send('mail.google.com')
-def printmeh(res):
-	print res
-
-d.addCallback(printmeh)	
-
 reactor.run()
 
 

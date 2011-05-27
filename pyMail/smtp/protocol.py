@@ -2,6 +2,8 @@ from twisted.protocols import basic
 from twisted.internet import protocol, reactor, defer
 from message import messageTransport
 from address import Address
+from StringIO import StringIO
+import dns.resolver
 
 class serverProtocol(basic.LineOnlyReceiver):	
 	
@@ -107,17 +109,156 @@ class serverFactory(protocol.ServerFactory):
 		return p
 
 class clientProtocol(basic.LineOnlyReceiver):
+	
+
 	def connectionMade(self):
-		self._expected = [250]
+		self._continuation = []
+		self._stopLog = False
+		self._expected = [220]
 		self._goodResponse = self.do_helo
-		self._badResponse = self.no_helo
+		self._badResponse = self.no_connection
 		print 'has connection to %s' % self.transport.getPeer().host
 		
-	def LineReceived(self, line):
-		print ('hai')
+	def no_connection(self, resp):
+		print 'Server issud a bad connection response'
+		
+	def lineReceived(self, line):
+		code = int(line[0:3])
+		print 'S: %s' % line
+		
+		if(line[3] == '-'):
+			self._continuation.append(line)
+			return True
+			
+		if ( code in self._expected):
+			result = self._goodResponse(code, line[4:])
+			if isinstance(result, tuple):
+				msg = result[1]
+				result = result[0]
+			
+			self._continuation = []
+			
+		else:
+			result, msg = self._badResponse(code, line[4:])
+		
+		if result:
+			return True
+		else:
+			print 'something buggered up, dropping connection'
+			self.factory.messageFailed(msg)
+			self.closeConnection()
+	
+	def sendLine(self, msg):
+		if not self._stopLog:
+			print 'C: %s' % msg
+		self.transport.write(msg + '\r\n')
 	
 	def connectionFailed(self):
-		print ('sdfasdf')
+		print ('Couldn\'t Connect to Server')
+	
+	def closeConnection(self):
+		print 'Closing Connection'
+		self.transport.loseConnection()		
+
+	def do_helo(self, code, resp):
+		print ('Yays %s' % resp)
+		self._expected = [250]
+		self._goodResponse = self.do_mail
+		self._badResponse = self.no_ehlo
+		self.sendLine('ehlo localTest.com')
+		return True
+	
+	def no_ehlo(self, code, resp):
+		return False, 'Got Bad Ehlo Repsonse of: %s - %s, should probably implement helo?' % (code, resp)
+		
+	def do_mail(self, code, resp):
+		if ( (self._continuation) > 0 ):
+			#parse abilities
+			pass
+		
+		self.sendLine('MAIL FROM: %s' % self.factory.mailFrom.fullAddress)
+		self._expected = [250]
+		self._goodResponse = self.start_RCPT
+		self._badResponse = self.mail_rejected
+		return True
+	
+	def mail_rejected(self, code, resp):
+		return False, 'Server Rejected Mail From with: %s' % resp
+		
+	def start_RCPT(self, code, resp):
+		self.addresses = iter(self.factory.rcpt)
+		self._rejectedRCPT = []
+		self._acceptedRCPT = []
+		self._expected = xrange(0, 1000)
+		self._goodResponse = self.RCPT_or_DATA
+		#should never fire a bad response because of range of expected codes
+		self._lastAddress = None
+		self.RCPT_or_DATA(0, '')
+		return True
+	
+	def RCPT_or_DATA(self, code, resp):
+		if self._lastAddress is not None:
+			if ( code != 250 ):
+				self._rejectedRCPT.append(self._lastAddress)
+			else:
+				self._acceptedRCPT.append(self._lastAddress)
+			
+		try: 			
+			self._lastAddress = self.addresses.next()			
+		except StopIteration:
+			if ( len(self._acceptedRCPT) == 0 ):
+				print code
+				return False, 'All given RCPTs were rejected'
+			#start data command we're out of addresses
+			self.start_data(code, resp)
+		else:
+			self.sendLine('RCPT TO: %s' % self._lastAddress.fullAddress)
+		return True
+			
+	def start_data(self, code, resp):
+		self.sendLine('DATA')
+		self._expected = [354]
+		self._goodResponse = self.do_data
+		self._badResponse = self.no_data_start
+		return True
+		
+	def no_data_start(self, code, resp):
+		return False, 'Server Rejected starting Data command with: %s - %s' % (code, resp)
+		
+	def do_data(self, code, resp):
+		self._stopLog = False
+		s = basic.FileSender()
+		d = s.beginFileTransfer(self.factory.data, self.transport, self.transformChunk)
+	
+		self._stopLog = False
+		def ebTransfer(err):
+
+			print 'Oh Dear'			
+
+		d.addCallbacks(self.transferComplete, ebTransfer)
+		return True
+		
+	def transferComplete(self, lastsent):
+		self._expected = [250]
+		self._goodResponse = self.message_complete
+		self._badResponse = self.fail_data
+		if lastsent != '\n':
+			line = '\r\n.'
+		else:
+			line = '.'
+		self.sendLine(line)	
+		
+	def transformChunk(self, chunk):
+		return chunk.replace('\n', '\r\n').replace('.\r\n', '..\r\n')
+		
+	def message_complete(self, code, resp):
+		print 'Firing Complete'
+		self.factory.messageDelivered()
+		self.closeConnection()
+		return True
+	
+	def fail_data(self, code, resp):
+		return False, 'Message Failed after data sent with: %s' % resp
 
 class ESMTPSender(protocol.ClientFactory):
 	protocol = clientProtocol
@@ -126,28 +267,49 @@ class ESMTPSender(protocol.ClientFactory):
 		self.d = d		
 		
 	def buildProtocol(self, addr):
-		p = protocol.ServerFactory.buildProtocol(self, addr)
+		p = protocol.ClientFactory.buildProtocol(self, addr)
 		print 'BUILDING PROTOCOL'
 		p.d = self.d
 		return p
 		
 	def messageFailed(self, msg):
-		self.d.errBack(msg)
+		self.d.errback(msg)
 		
 	def messageDelivered(self):
 		self.d.callback(':)')
 	
 class Sender:
-	def __init__(self):
+
+	def __init__(self):	
+		
+		self._from = ''
 		self._to = []
 		pass
 	
 	def addRCPT(self, arg):
 		self._to.append(arg) 
 	
-	def send(self, host):
+	def setDATA(self, data):
+		if not isinstance(data, file):
+			data = StringIO(data)
+		self.data = data
+		
+	def send(self):
 		d = defer.Deferred()
-		print host
-		print reactor.connectTCP(host, 25, ESMTPSender(d), 3)
+		factory = ESMTPSender(d)
+		factory.mailFrom = self._from
+		factory.rcpt = self._to
+		factory.data = self.data
+
+		host = None
+		records = dns.resolver.query(self._to[0].domain, 'MX')
+		current = 100
+		for rec in records:
+			if host is None or rec.preference < current:	
+				current = rec.preference
+				host = str(rec.exchange)
+				
+		print 'Connecting To: %s' % host
+		reactor.connectTCP(host, 25, factory, 3)
 		return d
 

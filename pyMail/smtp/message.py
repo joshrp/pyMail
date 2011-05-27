@@ -17,7 +17,7 @@ class messageTransport:
         self._to = _to
     
     def isLocal(self):
-        return True;
+        return self._to.fullAddress[-8:] == '@dev.com'
         
     def addLine(self, data):
         self.data.append(data)
