@@ -11,21 +11,22 @@ class serverProtocol(basic.LineOnlyReceiver):
 		self.fulldata = []
 		self._body = []
 		self.mode = 'COMMAND'
-		print 'Connection Received from: %s on Port %s' % (self.transport.getPeer().host, self.transport.getPeer().port)
+		self.peer = self.transport.getPeer().host
+		console.log('Connection Received from: %s on Port %s' % (self.peer, self.transport.getPeer().port))
 		
 		self.sendCode(220, 'mail.dev.com ESMTP pyMail')
 		#self.transport.loseConnection()
 	
 	def lineReceived(self, line):
 		self.fulldata.append(line)  
-		print 'C: ' + line
+		console.log( self.peer+ ' (C): ' + line)
 		func = getattr(self, 'state_%s' % (self.mode), None)
 		func(line)
 			
 	def sendCode(self, code, message):
-		resp = '%s - %s\n' % (code, message)
+		resp = '%s %s\n' % (code, message)
 		self.transport.write(resp)
-		print 'S: : %s' % (resp)
+		console.log('Me(S): %s' % (resp))
 		
 	def state_COMMAND(self, command):
 		"""Called when awaiting new command form client"""
@@ -56,7 +57,6 @@ class serverProtocol(basic.LineOnlyReceiver):
 		if (splits[0].upper() == 'FROM'):
 			"""TODO:: Mail from check"""
 			self._from = Address(splits[1])
-		print type(str(self._from))
 		self.sendCode(250, 'Ok Sending as from %s' % (self._from))
 	
 	def do_RCPT(self, args):
@@ -117,14 +117,15 @@ class clientProtocol(basic.LineOnlyReceiver):
 		self._expected = [220]
 		self._goodResponse = self.do_helo
 		self._badResponse = self.no_connection
-		print 'has connection to %s' % self.transport.getPeer().host
+		self.peer = self.transport.getPeer().host
+		console.log('has connection to %s' % self.peer)
 		
 	def no_connection(self, resp):
-		print 'Server issud a bad connection response'
+		console.log( 'Server issud a bad connection response')
 		
 	def lineReceived(self, line):
 		code = int(line[0:3])
-		print 'S: %s' % line
+		console.log('5s(S): %s' % (self.peer, line))
 		
 		if(line[3] == '-'):
 			self._continuation.append(line)
@@ -144,24 +145,23 @@ class clientProtocol(basic.LineOnlyReceiver):
 		if result:
 			return True
 		else:
-			print 'something buggered up, dropping connection'
+			console.log( 'something buggered up, dropping connection')
 			self.factory.messageFailed(msg)
 			self.closeConnection()
 	
 	def sendLine(self, msg):
 		if not self._stopLog:
-			print 'C: %s' % msg
+			console.log('Me(C): %s' % msg)
 		self.transport.write(msg + '\r\n')
 	
 	def connectionFailed(self):
-		print ('Couldn\'t Connect to Server')
+		console.log('Couldn\'t Connect to Server')
 	
 	def closeConnection(self):
-		print 'Closing Connection'
+		console.log('Closing Connection')
 		self.transport.loseConnection()		
 
 	def do_helo(self, code, resp):
-		print ('Yays %s' % resp)
 		self._expected = [250]
 		self._goodResponse = self.do_mail
 		self._badResponse = self.no_ehlo
@@ -200,6 +200,7 @@ class clientProtocol(basic.LineOnlyReceiver):
 		if self._lastAddress is not None:
 			if ( code != 250 ):
 				self._rejectedRCPT.append(self._lastAddress)
+				console.log('%s: RCPT TO Address Rejected - %s' % (self.peer, self.lastAddress))
 			else:
 				self._acceptedRCPT.append(self._lastAddress)
 			
@@ -207,7 +208,6 @@ class clientProtocol(basic.LineOnlyReceiver):
 			self._lastAddress = self.addresses.next()			
 		except StopIteration:
 			if ( len(self._acceptedRCPT) == 0 ):
-				print code
 				return False, 'All given RCPTs were rejected'
 			#start data command we're out of addresses
 			self.start_data(code, resp)
@@ -232,8 +232,7 @@ class clientProtocol(basic.LineOnlyReceiver):
 	
 		self._stopLog = False
 		def ebTransfer(err):
-
-			print 'Oh Dear'			
+			console.log( 'Oh Dear')
 
 		d.addCallbacks(self.transferComplete, ebTransfer)
 		return True
@@ -252,7 +251,6 @@ class clientProtocol(basic.LineOnlyReceiver):
 		return chunk.replace('\n', '\r\n').replace('.\r\n', '..\r\n')
 		
 	def message_complete(self, code, resp):
-		print 'Firing Complete'
 		self.factory.messageDelivered()
 		self.closeConnection()
 		return True
@@ -268,7 +266,6 @@ class ESMTPSender(protocol.ClientFactory):
 		
 	def buildProtocol(self, addr):
 		p = protocol.ClientFactory.buildProtocol(self, addr)
-		print 'BUILDING PROTOCOL'
 		p.d = self.d
 		return p
 		
@@ -309,7 +306,7 @@ class Sender:
 				current = rec.preference
 				host = str(rec.exchange)
 				
-		print 'Connecting To: %s' % host
+		console.log('Initiating client connetion to: %s' % host)
 		reactor.connectTCP(host, 25, factory, 3)
 		return d
 

@@ -1,4 +1,5 @@
 from pymongo import Connection
+from pyMail.logging import console
 class database:
     db = None
     conn = None
@@ -6,7 +7,7 @@ class database:
     def instance(): 
         s = database
         if s.conn is None or s.db is None:
-            print 'I just recconected to the DB'
+            console.log('I just recconected to the DB')
             s.conn = Connection()
             s.db = s.conn.pymail
             
