@@ -2,6 +2,7 @@ from twisted.protocols import basic
 from twisted.internet import protocol, reactor, defer
 from message import messageTransport
 from address import Address
+from pyMail.logging import console
 from StringIO import StringIO
 import dns.resolver
 
@@ -125,7 +126,7 @@ class clientProtocol(basic.LineOnlyReceiver):
 		
 	def lineReceived(self, line):
 		code = int(line[0:3])
-		console.log('5s(S): %s' % (self.peer, line))
+		console.log('%s(S): %s' % (self.peer, line))
 		
 		if(line[3] == '-'):
 			self._continuation.append(line)
@@ -200,7 +201,7 @@ class clientProtocol(basic.LineOnlyReceiver):
 		if self._lastAddress is not None:
 			if ( code != 250 ):
 				self._rejectedRCPT.append(self._lastAddress)
-				console.log('%s: RCPT TO Address Rejected - %s' % (self.peer, self.lastAddress))
+				console.log('%s: RCPT TO Address Rejected - %s' % (self.peer, self._lastAddress))
 			else:
 				self._acceptedRCPT.append(self._lastAddress)
 			
