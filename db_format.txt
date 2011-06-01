@@ -1,0 +1,22 @@
+domains:[
+    name: 'dev.com'
+    transport: 'DB' #for flat file fallback?
+    active: 1
+    aliases: [] # e.g. dev.co.uk
+    signing:{
+        cert: 'path/to/cert'
+        additionalHeaders:[]
+        #other options/go knows what
+    }
+    options:{
+        userLimit: 50
+        sizeLimit: 1GB # raw DB size limit
+        # plus plugin stuffs
+    }
+    users:[
+        name: 'john.locke108'
+        pass: hashkey #can put any front on (clear, crypt etc. - but will compare in hash for DB security sake)
+        sizeLimit: 50mb # raw DB size Limit
+        options:[] #additional stuffs for plugins, forwarding/auto modify body etc.        
+    ]
+]
