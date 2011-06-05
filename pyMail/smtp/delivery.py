@@ -6,9 +6,7 @@ class deliveryAgent:
 	   
 	def attempt(self, message, passThruId):
 		d = defer.Deferred() 
-		if ( message.isLocal() ):
-			#....it's HERE!
-			
+		if ( message._to.isLocal() ):			
 			newid = self.db.save({
 				'body': message.getBody(),
 				'headers': message.headers,
@@ -17,9 +15,9 @@ class deliveryAgent:
 				'helo': message.helo,
 			})
 			if newid is not None:
-				d.callback([newid, self.db.find({'_id': newid})[0], passThruId])
+				d.callback([newid, message, passThruId])
 			else:
-				#uh ph
+				#uh pass
 				pass
 		else:
 			mail = Sender()
@@ -32,7 +30,7 @@ class deliveryAgent:
 				d.callback([0, message, passThruId])
 
 			def ebFailed(args):
-				d.errback(message, passThruId)
+				d.errback([0, message, passThruId])
 				
 			sent = mail.send()
 			sent.addCallback(cbComplete)

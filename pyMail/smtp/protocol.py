@@ -2,6 +2,7 @@ from twisted.protocols import basic
 from twisted.internet import protocol, reactor, defer
 from message import messageTransport
 from address import Address
+from pyMail.logging import console
 from StringIO import StringIO
 import dns.resolver
 
@@ -10,12 +11,13 @@ class serverProtocol(basic.LineOnlyReceiver):
 	def connectionMade(self):
 		self.fulldata = []
 		self._body = []
+		self.loginUser = None
+		self.loginPass = None
 		self.mode = 'COMMAND'
 		self.peer = self.transport.getPeer().host
 		console.log('Connection Received from: %s on Port %s' % (self.peer, self.transport.getPeer().port))
 		
 		self.sendCode(220, 'mail.dev.com ESMTP pyMail')
-		#self.transport.loseConnection()
 	
 	def lineReceived(self, line):
 		self.fulldata.append(line)  
@@ -23,10 +25,13 @@ class serverProtocol(basic.LineOnlyReceiver):
 		func = getattr(self, 'state_%s' % (self.mode), None)
 		func(line)
 			
-	def sendCode(self, code, message):
-		resp = '%s %s\n' % (code, message)
+	def sendCode(self, code, message, cont=False):
+		if cont:
+			resp = '%s%s\n' % (code, message)
+		else:
+			resp = '%s %s\n' % (code, message)
 		self.transport.write(resp)
-		console.log('Me(S): %s' % (resp))
+		console.log('Me(S): %s' % (resp[:-1]))
 		
 	def state_COMMAND(self, command):
 		"""Called when awaiting new command form client"""
@@ -46,11 +51,32 @@ class serverProtocol(basic.LineOnlyReceiver):
 			
 	def do_EHLO(self, args):
 		self.helo = ' '.join(args)
-		self.sendCode(250, '%s - %s' % (self.settings['welcome'], ' '.join(args))) 
+		self.sendCode(250, '%s - %s' % (self.settings['welcome'], ' '.join(args)))
+		self.sendCode(250, '-AUTH LOGIN', True)
+		self.sendCode(250, '-AUTH PLAIN', True)
 		
+	def do_AUTH(self, args):
+		self.mode = 'AUTH'
+		self.sendCode(334, 'VXNlcm5hbWU6')
+	
+	def state_AUTH(self, value):
+		if self.loginUser is None:
+			self.loginUser = value
+			self.sendCode(334, 'UGFzc3dvcmQ6')
+		else:
+			self.mode = 'COMMAND'
+			self.loginPass = value
+			self.sendCode(235, 'authenticated')
+			
 	def do_QUIT(self, args):
 		self.sendCode(221, "Goodbye!!")
 		self.transport.loseConnection()	   
+	
+	def do_RSET(self, args):
+		self.mode = 'COMMAND'
+		self.body = []
+		self.fulldata = []
+		self.sendCode(250, ' Ok I\'ve Reset')
 	
 	def do_MAIL(self, args):		
 		splits = args[0].split(':')		
@@ -125,7 +151,7 @@ class clientProtocol(basic.LineOnlyReceiver):
 		
 	def lineReceived(self, line):
 		code = int(line[0:3])
-		console.log('5s(S): %s' % (self.peer, line))
+		console.log('%s(S): %s' % (self.peer, line))
 		
 		if(line[3] == '-'):
 			self._continuation.append(line)
@@ -200,7 +226,7 @@ class clientProtocol(basic.LineOnlyReceiver):
 		if self._lastAddress is not None:
 			if ( code != 250 ):
 				self._rejectedRCPT.append(self._lastAddress)
-				console.log('%s: RCPT TO Address Rejected - %s' % (self.peer, self.lastAddress))
+				console.log('%s: RCPT TO Address Rejected - %s' % (self.peer, self._lastAddress))
 			else:
 				self._acceptedRCPT.append(self._lastAddress)
 			
