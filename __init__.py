@@ -2,14 +2,14 @@ from twisted.internet import reactor
 import sys
 from pyMail.database import database
 from pyMail.logging import console
-from pyMail.smtp import protocol, queue, delivery
+
 from pyMail.config import config
-sys.path.append('./')
 db = database.instance()
 
 config = config(db)
 
-if ( config.services['smtp']['on'] ):	
+if ( config.services['smtp']['on'] ):
+	from pyMail.smtp import queue, delivery, protocol	
 	console.log('Starting SMTP on port %s' % (config.services['smtp']['port']))
 	
 	deliv = delivery.deliveryAgent(db.messages)
@@ -21,8 +21,10 @@ if ( config.services['smtp']['on'] ):
 if ( config.services['smtps']['on'] ):	
 	reactor.listenSSL(config.services['smtps']['port'], protocol.serverFactory(config.services['smtps'], queue))
 
-if ( config.services['imap']['on'] ):	
-	reactor.listenTCP(config.services['imap']['port'], protocol.factory(config.services['imap'], queue))
+if ( config.services['imap']['on'] ):
+	from pyMail.imap import protocol
+	console.log('Starting IMAP on port %s' % config.services['imap']['port'])	
+	reactor.listenTCP(config.services['imap']['port'], protocol.serverFactory(config.services['imap']))
 
 reactor.run()
 
