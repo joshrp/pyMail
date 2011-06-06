@@ -3,7 +3,7 @@ import re
 class messageTransport:
 	"""Provides access and helpers to a message that is in transport
 		These are only composed of 
-		_to: [] of User's
+		_to: User
 		_from: User
 		_mode: The mode of adding data to message, header/body
 		_data: All of the data 
@@ -20,9 +20,6 @@ class messageTransport:
 		self._from = _from
 		self._to = _to
 		self._mode = 'header'
-	
-	def isLocal(self):
-		return self._to.fullAddress[-9:-1] == '@dev.com'
 		
 	def addLine(self, data):
 		if self._mode == 'header':

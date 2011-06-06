@@ -1,26 +1,30 @@
 from twisted.internet import reactor
-from pymail.database import database
-from pymail.logging import console
-from pyMail.smtp import protocol, queue, delivery
-import config
+import sys
+from pyMail.database import database
+from pyMail.logging import console
 
+from pyMail.config import config
 db = database.instance()
 
-conf = config.config(db)
-if ( conf['services']['smtp']['on'] ):	
-	console.log('Starting SMTP on port %s' % (conf['services']['smtp']['port']))
+config = config(db)
+
+if ( config.services['smtp']['on'] ):
+	from pyMail.smtp import queue, delivery, protocol	
+	console.log('Starting SMTP on port %s' % (config.services['smtp']['port']))
 	
 	deliv = delivery.deliveryAgent(db.messages)
 	queue = queue.queue(db.queue, deliv)	
 	queue.restore()   
 	
-	reactor.listenTCP(conf['services']['smtp']['port'], protocol.serverFactory(conf['services']['smtp'], queue))
+	reactor.listenTCP(config.services['smtp']['port'], protocol.serverFactory(config.services['smtp'], queue))
 	
-if ( conf['services']['smtps']['on'] ):	
-	reactor.listenSSL(conf['services']['smtps']['port'], protocol.serverFactory(conf['services']['smtps'], queue))
+if ( config.services['smtps']['on'] ):	
+	reactor.listenSSL(config.services['smtps']['port'], protocol.serverFactory(config.services['smtps'], queue))
 
-if ( conf['services']['imap']['on'] ):	
-	reactor.listenTCP(conf['services']['imap']['port'], protocol.factory(conf['services']['imap'], queue))
+if ( config.services['imap']['on'] ):
+	from pyMail.imap import protocol
+	console.log('Starting IMAP on port %s' % config.services['imap']['port'])	
+	reactor.listenTCP(config.services['imap']['port'], protocol.serverFactory(config.services['imap']))
 
 reactor.run()
 

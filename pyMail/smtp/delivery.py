@@ -6,7 +6,7 @@ class deliveryAgent:
 	   
 	def attempt(self, message, passThruId):
 		d = defer.Deferred() 
-		if ( message.isLocal() ):			
+		if ( message._to.isLocal() ):			
 			newid = self.db.save({
 				'body': message.getBody(),
 				'headers': message.headers,
