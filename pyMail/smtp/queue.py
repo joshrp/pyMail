@@ -52,7 +52,7 @@ class queue:
 	
 	def messageSuccess(self, args):
 		id, message, queueId = args
-		#self.queue.pop(queueId)
+		self.queue.pop(queueId)
 		console.log('WIIIIIIN : from %s to %s \nMessage ID: %s' % (message._from.fullAddress, message._to.fullAddress, id))
 		self.saveState()
 		

@@ -6,18 +6,20 @@ quickly with the most common feature set:
     POP(.....simple)
     Virtual Domains (single domain instances know no difference)
 
-Current State:
+Current State pre-alpha:
 
-pyMail can receive local mail ('dev.com') and remote mail (anywhere)
+pyMail can receive local mail and relay mail 
 it resolves and retrives the highest preference mail server for remotes
-and delivers with its client. features are basic as this is pre pre pre(^100) 
+and delivers with its client. Features are basic as this is pre pre pre(^100) 
 alpha stage and getting SMTP sending and receiving working was the priority.
 
-It stores local mail in MongoDB.
+It stores local mail in MongoDB using the db_format method. The only 
+required fields at this stage are domains->name & alias.
 
 pyMail expects to be able to import:
     pyMongo (and therefore mongoDB obv.)
     dns (dnspython.org for resolving MX records for domains
     
 whether these are in the directory or in PYTHONPATH is irrelevent 
-and better configurations for db's are in the works
+
+better configurations for db's are in the works
