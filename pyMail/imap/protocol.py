@@ -30,8 +30,11 @@ class serverProtocol(basic.LineOnlyReceiver):
 			func(args, label)	
 	
 	def do_lsub(self, args, label):
-		self.sendLine('1 () "/" Mail')
-		self.sendLine('2 () "/" Mail/Trash')
+		self.sendLine('LSUB (\HasChildren) "/" "INBOX"')
+		self.sendLine('LSUB (\HasNoChildren) "/" "INBOX/Drafts"')
+		self.sendLine('LSUB (\HasNoChildren) "/" "INBOX/Sent"')
+		self.sendLine('LSUB (\HasNoChildren) "/" "INBOX/Trash"')
+		self.sendLine('LSUB (\HasNoChildren) "/" "INBOX/special"')
 		self.sendLine('OK LSUB Complete', label)
 	
 	def state_UNAUTH(self, line):
@@ -66,7 +69,7 @@ class serverProtocol(basic.LineOnlyReceiver):
 					self._tempUser = user
 					self.sendLine('+ ', None)
 				else:
-					console.log(login)
+					console.log(user)
 					self.sendLine('BAD LOGIN', self._authLabel)
 			else:
 				if user == 'password':

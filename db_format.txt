@@ -18,7 +18,7 @@ domains:[
         pass: hashkey #can put any front on (clear, crypt etc. - but will compare in hash for DB security sake)
         sizeLimit: 50mb # raw DB size Limit
         options:[] #additional stuffs for plugins, forwarding/auto modify body etc. 
-	groups: [] #list of gourd IDs this user belongs to       
+		groups: [] #list of gourd IDs this user belongs to       
     ]
     groups:[
     	id: 
@@ -26,4 +26,16 @@ domains:[
     	address: ''#user name that will receive mail for all memeber of the group 
         options:[] #additional stuffs for plugins, forwarding/auto modify body etc.        
     ]
+]
+
+mailboxes:[
+	id: '' #unique to all mailboxes
+	name: ''
+	ancestry: [] #descending array of ancestors e.g. ['inbox', 'work', 'do later']. Mucho Speedo when checking mail in top level mailbox
+	messages:[
+		id: '' #the messages unique ID
+		flags: [] #list of flags to apply
+		tags: [] # extra tags to apply, mainly for internal plugins
+		
+	]		
 ]
