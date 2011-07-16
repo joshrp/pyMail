@@ -2,7 +2,14 @@ from pyMail.config import config
 class Address:
 	def __init__(self, addr):
 		self.fullAddress = addr
-		self.domain = addr[ addr.find('@')+1 : -1]
+		if (addr[0] == '<') != (addr[-1] == '>'):
+			raise TypeError('Unbalanced "<>"')
+		if (addr[0] == '<') and (addr[-1] == '>'):
+			addr = addr[1:-1]
+		
+		split = addr.split('@')		
+		self.user = split[0]
+		self.domain = split[1]
 	
 	def isValidEmail(self):
 		addr = self.fullAddress
@@ -12,7 +19,7 @@ class Address:
 	
 	def isLocal(self):
 		conf = config.instance
-		return self.domain in conf.domains
+		return conf.ResolveDomain(self.domain) != False
 	 
 	def __str__(self):
 		return self.fullAddress	

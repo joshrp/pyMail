@@ -1,27 +1,42 @@
 from settings import settings
+from database import database
+from logging import console
 class config:
 	instance = None
 	def __init__(self, db, force=False):	
-		if config.instance is None or force:				
-			config.instance = self
+		if config.instance is None or force:		
 			self.settings = settings
 			self.db = db
-			self.populateDomains(True)
-		
-	def populateDomains(self, force=False):
-		""" Parse domains from DB for speeds sake e.g. 'dev.co.uk' in settings['domains'] 
-		 even though its an alias and therefore nested in the DB """
-		if not 'domains' in self.settings or force:
-			domains = self.db.domains.find()
-			
-			self.settings['domains'] = {}
-			for dom in domains:
-				self.settings['domains'][dom['name']] = dom				
-				for alias in dom['alias']:
-					self.settings['domains'][alias] = {
-						'parent':dom['name']
-					}
-		return self.settings['domains']
-
+			config.instance = self
+	
+	def ResolveDomain(self, name):
+		res = self.db.domains.find({'$or': [{'name': name}, {'alias': name}]})
+		if res.count() == 1:
+			return Domain(res[0])
+		else:
+			return False
+	
+	def ResolveAccount(self, name):	
+		import account, address
+		addr = address.Address(name)
+		domain = self.ResolveDomain(addr.domain)
+		if domain.hasUser(addr.user):
+			return account.Account(addr, domain, domain.users[addr.user])
+		else:
+			return False	
+				
 	def __getattr__(self, var):
 		return self.settings[var]
+		
+class Domain:
+	def __init__(self, dom):
+		self.db = database.instance().domains
+		self.domain = dom
+	
+	def hasUser(self, user):
+		return user in self.users
+			
+	def __getattr__(self, var):
+		return self.domain[var]
+
+	

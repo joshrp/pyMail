@@ -1,8 +1,9 @@
 from twisted.protocols import basic
 from twisted.internet import protocol, reactor, defer
 from message import messageTransport
-from address import Address
+from pyMail.address import Address
 from pyMail.logging import console
+from pyMail.config import config
 from StringIO import StringIO
 import dns.resolver
 
@@ -51,23 +52,47 @@ class serverProtocol(basic.LineOnlyReceiver):
 			
 	def do_EHLO(self, args):
 		self.helo = ' '.join(args)
-		self.sendCode(250, '%s - %s' % (self.settings['welcome'], ' '.join(args)))
-		self.sendCode(250, '-AUTH LOGIN', True)
-		self.sendCode(250, '-AUTH PLAIN', True)
+		self.sendCode(250, '-%s - %s' % (self.settings['welcome'], ' '.join(args)), True)
+		self.sendCode(250, 'AUTH LOGIN PLAIN')
 		
 	def do_AUTH(self, args):
-		self.mode = 'AUTH'
-		self.sendCode(334, 'VXNlcm5hbWU6')
+		self.mode = 'AUTH_' + args[0].upper();
+		try:
+			func = getattr(self, 'state_'+self.mode)
+		except AttributeError:
+			self.sendCode(504, 'Unrecognized authentication type.')
+			self.mode = 'COMMAND'
+			return False;
+		authType = args[0]  
+		func(args[1:])
 	
-	def state_AUTH(self, value):
+	def state_AUTH_LOGIN(self, value):
+		if value[0] == '':
+			self.sendCode(334, 'VXNlcm5hbWU6')
+			return True
+			
 		if self.loginUser is None:
 			self.loginUser = value
 			self.sendCode(334, 'UGFzc3dvcmQ6')
 		else:
 			self.mode = 'COMMAND'
 			self.loginPass = value
+			self.authd = True
 			self.sendCode(235, 'authenticated')
-			
+	
+	def state_AUTH_PLAIN(self, args):
+		import base64, hashlib
+		vals = base64.b64decode(args[0]).split('\x00')[1:]
+		user = self.config.ResolveAccount(vals[0])		
+		secret = hashlib.sha1()
+		secret.update(vals[1])
+		self.authd = user.Authenticate(secret)
+		if self.authd == True:
+			self.sendCode(235, 'authenticated')
+		else:
+			self.sendCode(503, 'Authentication Failed')
+		self.mode = 'COMMAND'
+	
 	def do_QUIT(self, args):
 		self.sendCode(221, "Goodbye!!")
 		self.transport.loseConnection()	   
@@ -91,6 +116,7 @@ class serverProtocol(basic.LineOnlyReceiver):
 			"""TODO::check rcpt agaist domains and whatnot"""
 			addr = Address(splits[1])
 			valid, reason = addr.isValidEmail()
+		
 			if not valid:
 				self.sendCode(500, 'Unnaccepted: Not a valid Address %s' % reason)
 			else:
@@ -129,6 +155,7 @@ class serverFactory(protocol.ServerFactory):
 		
 	def buildProtocol(self, addr):
 		p = protocol.ServerFactory.buildProtocol(self, addr)
+		p.config = config.instance
 		p.settings = self.settings
 		p.portal = self.portal
 		p.queue = self.queue

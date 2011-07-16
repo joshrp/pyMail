@@ -41,12 +41,19 @@ class queue:
 	def deliverQueue(self): 
 		i = 0		
 		for q in self.queue:
-			console.log( 'Processing: Queue Item %s from %s' % (i, q['message']._from)	)
+			console.log( 'Processing: Queue Item %s from %s to %s' % (i, q['message']._from, q['message']._to)	)
 			if ( q['reAttempt'] < time.time() and q['reAttempt'] != 0 ):
 				continue			
-			res = self.delivery.attempt(q['message'], i)
-			res.addCallback(self.messageSuccess)
-			res.addErrback(self.messageFailure)
+			try:
+				res = self.delivery.attempt(q['message'], i)
+				res.addCallback(self.messageSuccess)
+				res.addErrback(self.messageFailure)
+			except:
+				 import sys, traceback
+				 inf = sys.exc_info()
+				 console.log('Exception in delivery thread: \n%s' % inf[0])
+				 console.log('Trace: \n' + '\n'.join(traceback.format_tb(inf[2])))
+			
 			i = i + 1
 		self.saveState()
 	
@@ -57,9 +64,8 @@ class queue:
 		self.saveState()
 		
 	def messageFailure(self, args):
-		console.log(args)
 		id, message, queueId = args
-		console.log( 'ZOMG FAAAAIL: from %s to %s' % (message._from, message._to))
+		console.log('ZOMG FAAAAIL: from %s to %s' % (message._from, message._to))
 	
 	def restore(self):
 		for m in self.db.find().sort([['added', pymongo.ASCENDING], ['attempt.time', pymongo.ASCENDING]]):

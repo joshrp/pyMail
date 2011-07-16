@@ -1,4 +1,4 @@
-from address import Address
+from pyMail.address import Address
 import re
 class messageTransport:
 	"""Provides access and helpers to a message that is in transport
