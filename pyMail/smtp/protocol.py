@@ -12,8 +12,7 @@ class serverProtocol(basic.LineOnlyReceiver):
 	def connectionMade(self):
 		self.fulldata = []
 		self._body = []
-		self.loginUser = None
-		self.loginPass = None
+		self.user = None
 		self.mode = 'COMMAND'
 		self.peer = self.transport.getPeer().host
 		console.log('Connection Received from: %s on Port %s' % (self.peer, self.transport.getPeer().port))
@@ -53,10 +52,10 @@ class serverProtocol(basic.LineOnlyReceiver):
 	def do_EHLO(self, args):
 		self.helo = ' '.join(args)
 		self.sendCode(250, '-%s - %s' % (self.settings['welcome'], ' '.join(args)), True)
-		self.sendCode(250, 'AUTH LOGIN PLAIN')
+		self.sendCode(250, 'AUTH CRAM-MD5')
 		
 	def do_AUTH(self, args):
-		self.mode = 'AUTH_' + args[0].upper();
+		self.mode = 'AUTH_' + args[0].replace('-', '_').upper();
 		try:
 			func = getattr(self, 'state_'+self.mode)
 		except AttributeError:
@@ -66,30 +65,43 @@ class serverProtocol(basic.LineOnlyReceiver):
 		authType = args[0]  
 		func(args[1:])
 	
+	def state_AUTH_CRAM_MD5(self, value):
+		pass
+	
 	def state_AUTH_LOGIN(self, value):
-		if value[0] == '':
+		import base64, hashlib
+		
+		if len(value) == 0:
 			self.sendCode(334, 'VXNlcm5hbWU6')
 			return True
 			
-		if self.loginUser is None:
-			self.loginUser = value
+		if self.user is None:
+			name = base64.b64decode(value)
+			self.user = self.config.ResolveAccount(name)
 			self.sendCode(334, 'UGFzc3dvcmQ6')
-		else:
+		else:			
+			value = base64.b64decode(value)
+			sha = hashlib.md5()
+			sha.update(value)			
+			if self.user.AuthenticateBasic(sha):
+				self.sendCode(235, 'authenticated')
+			else:
+				self.sendCode(503, 'Authentication Failed')
+			
 			self.mode = 'COMMAND'
-			self.loginPass = value
-			self.authd = True
-			self.sendCode(235, 'authenticated')
 	
 	def state_AUTH_PLAIN(self, args):
 		import base64, hashlib
 		vals = base64.b64decode(args[0]).split('\x00')[1:]
 		user = self.config.ResolveAccount(vals[0])		
-		secret = hashlib.sha1()
+		secret = hashlib.md5()
 		secret.update(vals[1])
-		self.authd = user.Authenticate(secret)
+		self.authd = user.AuthenticateBasic(secret)
 		if self.authd == True:
+			self.user = user
 			self.sendCode(235, 'authenticated')
 		else:
+			self.user = None
 			self.sendCode(503, 'Authentication Failed')
 		self.mode = 'COMMAND'
 	

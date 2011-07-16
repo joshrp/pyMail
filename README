@@ -6,12 +6,14 @@ quickly with the most common feature set:
     POP(.....simple)
     Virtual Domains (single domain instances know no difference)
 
-Current State pre-alpha:
+Current State alpha:
 
-pyMail can receive local mail and relay mail 
-it resolves and retrives the highest preference mail server for remotes
-and delivers with its client. Features are basic as this is pre pre pre(^100) 
-alpha stage and getting SMTP sending and receiving working was the priority.
+Can receive mail for local users
+can act as relay for remote domains
+SMTP can Authenticate with PLAIN and LOGIN Mechanisms alothough 
+	does not yet enforce them
+IMAP in the works
+
 
 It stores local mail in MongoDB using the db_format method. The only 
 required fields at this stage are domains->name & alias.
