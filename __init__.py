@@ -24,7 +24,7 @@ if ( config.services['smtps']['on'] ):
 if ( config.services['imap']['on'] ):
 	from pyMail.imap import protocol
 	console.log('Starting IMAP on port %s' % config.services['imap']['port'])	
-	reactor.listenTCP(config.services['imap']['port'], protocol.serverFactory(config.services['imap']))
+	reactor.listenTCP(config.services['imap']['port'], protocol.serverFactory(config))
 
 reactor.run()
 

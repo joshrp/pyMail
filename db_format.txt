@@ -18,7 +18,8 @@ domains:[
         pass: hashkey #can put any front on (clear, crypt etc. - but will compare in hash for DB security sake)
         sizeLimit: 50mb # raw DB size Limit
         options:[] #additional stuffs for plugins, forwarding/auto modify body etc. 
-		groups: [] #list of gourd IDs this user belongs to       
+		groups: [] #list of gourd IDs this user belongs to   
+		mailboxes: [] #list of mailbox ID's    
     ]
     groups:[
     	id: 
@@ -38,4 +39,19 @@ mailboxes:[
 		tags: [] # extra tags to apply, mainly for internal plugins
 		
 	]		
+]
+
+mail:[
+	id: '' #unique to server pk, links to mailboxes.messages.id
+	headers: [
+		key: ''
+		value: ''
+	]
+	rawHeaders: '' #for signed messages
+	body: [ # split into parts
+		code: ''
+		content: ''	
+	]
+	rawBody: '' #full body text with all attachments, could be gridFS reference in future if space is an issue
+	
 ]
