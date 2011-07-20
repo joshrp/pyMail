@@ -5,6 +5,7 @@ from pyMail.account import Account
 class serverProtocol(basic.LineOnlyReceiver):
 	def connectionMade(self):
 		console.log('Connection Established with %s' % self.transport.getPeer().host)
+		self.user = None
 		self.state = self.state_UNAUTH
 		self.sendLine('OK Go Ahead')
 	
@@ -30,11 +31,8 @@ class serverProtocol(basic.LineOnlyReceiver):
 			func(args, label)	
 	
 	def do_lsub(self, args, label):
-		self.sendLine('LSUB (\HasChildren) "/" "INBOX"')
-		self.sendLine('LSUB (\HasNoChildren) "/" "INBOX/Drafts"')
-		self.sendLine('LSUB (\HasNoChildren) "/" "INBOX/Sent"')
-		self.sendLine('LSUB (\HasNoChildren) "/" "INBOX/Trash"')
-		self.sendLine('LSUB (\HasNoChildren) "/" "INBOX/special"')
+		for box in self.user.mailboxes:
+			self.sendLine('LSUB (%s) "%s" "%s"' % (flags, ref, name), '*')
 		self.sendLine('OK LSUB Complete', label)
 	
 	def state_UNAUTH(self, line):
@@ -42,10 +40,11 @@ class serverProtocol(basic.LineOnlyReceiver):
 		label = split[0]
 		command = split[1]
 		args = split[2:]
-		func = getattr(self, 'do_' + command.upper(), None)
-		
-		if func is not None:
-			func(args, label)
+		commands = ['authenticate', 'capability']
+		if command in commands:
+			getattr(self, 'do_' + command.upper(), None)(args, label)
+		else:
+			self.sendLine('Must be authenticated', label)
 			
 	def do_CAPABILITY(self, args, label):
 		self.sendLine('CAPABILITY IMAP4REV1 AUTH=LOGIN')
@@ -53,33 +52,36 @@ class serverProtocol(basic.LineOnlyReceiver):
 		
 	def do_AUTHENTICATE(self, args, label):
 		import base64
-		self._tempUser = None
-		self.state = self.state_AUTHING
+		try:
+			func = getattr(self, 'state_AUTH_'+args[0])
+		except AttributeError:
+			self.sendCode(504, 'Unrecognized authentication type.')
+			self.state = 'COMMAND'
+			return False;
+		self.state = func
 		self._authLabel = label
-		self._authMethod = args[0]
-		self.sendLine('+ ', None)
+		self.state(args[1:])
 	
-	def state_AUTHING(self, line):
-		import base64
-		if self._authMethod == 'login':			
-			user = base64.b64decode(line)
-			# unicode null values seperate user and password
-			if self._tempUser is None:
-				self.config.ResolveAccount(user)
-				if user == 'test@dev.com':
-					self._tempUser = user
-					self.sendLine('+ ', None)
-				else:
-					console.log(user)
-					self.sendLine('BAD LOGIN', self._authLabel)
-			else:
-				if user == 'password':
-					self.state = self.state_AUTH
-					self.sendLine('OK Authenticated', self._authLabel)
+	def state_AUTH_LOGIN(self, args):
+		"""Client passes user and pass sepertly after recieiving + from server
+		base64 encoded ofc"""
+		import base64, hashlib		
+		if len(args) == 0:
+			self.sendLine('+', None)
+			
+		line = base64.b64decode(line)
+		if self.user is None:
+			self.user = self.config.ResolveAccount(line)
+			self.sendLine('+ ', None)
 		else:
-			pass
-	def do_LOGIN(self, line, label):
-		self.sendLine('OK Authenticated', label)
+			secret = hashlib.md5()
+			secret.update(line)
+			if self.user.AuthenticateBasic(secret):
+				self.state = self.state_AUTH
+				self.sendLine('OK Authenticated', self._authLabel)
+			else:
+				self.sendLine('Authentication Failed', self.authLabel)
+				self.state = self.state_AUTH
 		
 class serverFactory(protocol.ServerFactory):
 	protocol = serverProtocol
