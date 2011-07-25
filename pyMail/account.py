@@ -6,7 +6,7 @@ class Account:
 		conf = config.instance
 		self.authd = False
 		if preLoad is not None:
-			self.data = preLoad
+			self.__dict__ = preLoad
 		else:
 			pass
 			#pull data from db	
@@ -30,4 +30,8 @@ class Account:
 		return self.authd
 
 	def __getattr__(self, var):
-		return self.data[var]
+		if var == 'mailboxes':
+			import mailboxes
+			self.mailboxes = mailboxes.mailboxes.byId(self.mailboxIds)
+			return self.mailboxes
+		raise AttributeError, var

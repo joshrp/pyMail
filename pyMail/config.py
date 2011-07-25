@@ -19,7 +19,11 @@ class config:
 	def ResolveAccount(self, name):	
 		import account, address
 		addr = address.Address(name)
+		if not addr.isLocal:
+			return False
 		domain = self.ResolveDomain(addr.domain)
+		if domain == False:
+			return False
 		if domain.hasUser(addr.user):
 			return account.Account(addr, domain, domain.users[addr.user])
 		else:
@@ -31,12 +35,8 @@ class config:
 class Domain:
 	def __init__(self, dom):
 		self.db = database.instance().domains
-		self.domain = dom
+		self.__dict__ = dom
 	
 	def hasUser(self, user):
 		return user in self.users
-			
-	def __getattr__(self, var):
-		return self.domain[var]
-
 	

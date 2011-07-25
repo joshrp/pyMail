@@ -31,8 +31,10 @@ class serverProtocol(basic.LineOnlyReceiver):
 			func(args, label)	
 	
 	def do_lsub(self, args, label):
+		console.log('Starting LSUB')
 		for box in self.user.mailboxes:
-			self.sendLine('LSUB (%s) "%s" "%s"' % (flags, ref, name), '*')
+			box = self.user.mailboxes[box]
+			self.sendLine(str('LSUB (%s) "/" "%s"' % (', '.join(box['flags']), box['name'])), '*')
 		self.sendLine('OK LSUB Complete', label)
 	
 	def state_UNAUTH(self, line):
@@ -53,25 +55,33 @@ class serverProtocol(basic.LineOnlyReceiver):
 	def do_AUTHENTICATE(self, args, label):
 		import base64
 		try:
-			func = getattr(self, 'state_AUTH_'+args[0])
+			console.log('Trying Auth type: '+args[0].upper())
+			func = getattr(self, 'state_AUTH_'+args[0].upper())
 		except AttributeError:
-			self.sendCode(504, 'Unrecognized authentication type.')
-			self.state = 'COMMAND'
+			self.sendLine('Unrecognized authentication type.')
+			self.state = self.state_UNAUTH
 			return False;
 		self.state = func
 		self._authLabel = label
-		self.state(args[1:])
+		self.state(' '.join(args[1:]))
 	
 	def state_AUTH_LOGIN(self, args):
 		"""Client passes user and pass sepertly after recieiving + from server
 		base64 encoded ofc"""
-		import base64, hashlib		
-		if len(args) == 0:
+		import base64, hashlib	
+		if type(args) == str:
+			args = args.split(' ')
+				
+		if len(args[0]) == 0:
 			self.sendLine('+', None)
+			return True
 			
-		line = base64.b64decode(line)
+		line = base64.b64decode(args[0])
 		if self.user is None:
 			self.user = self.config.ResolveAccount(line)
+			if self.user == False:
+				self.sendLine('NO AUTHENTICATE Failed', self._authLabel)
+				self.state = self.STATE_UNAUTH
 			self.sendLine('+ ', None)
 		else:
 			secret = hashlib.md5()
@@ -80,8 +90,8 @@ class serverProtocol(basic.LineOnlyReceiver):
 				self.state = self.state_AUTH
 				self.sendLine('OK Authenticated', self._authLabel)
 			else:
-				self.sendLine('Authentication Failed', self.authLabel)
-				self.state = self.state_AUTH
+				self.sendLine('NO AUTHENTICATE Failed', self._authLabel)
+				self.state = self.state_UNAUTH
 		
 class serverFactory(protocol.ServerFactory):
 	protocol = serverProtocol
