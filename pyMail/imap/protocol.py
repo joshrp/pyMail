@@ -32,9 +32,21 @@ class serverProtocol(basic.LineOnlyReceiver):
 	
 	def do_lsub(self, args, label):
 		console.log('Starting LSUB')
+		def descend(box, prefix=[]):
+			if len(prefix) > 0:
+				pre = '/'.join(prefix)+'/'
+			else:
+				pre = ''
+				
+			self.sendLine(str('LSUB (%s) "/" "%s%s"' % (', '.join(box['flags']), pre, box['name'])), '*')
+			if 'children' in box:
+				prefix.append(box['name'])
+				for child in box['children']:
+					descend(child, prefix)
+			
 		for box in self.user.mailboxes:
 			box = self.user.mailboxes[box]
-			self.sendLine(str('LSUB (%s) "/" "%s"' % (', '.join(box['flags']), box['name'])), '*')
+			descend(box)
 		self.sendLine('OK LSUB Complete', label)
 	
 	def state_UNAUTH(self, line):
@@ -42,7 +54,7 @@ class serverProtocol(basic.LineOnlyReceiver):
 		label = split[0]
 		command = split[1]
 		args = split[2:]
-		commands = ['authenticate', 'capability']
+		commands = ['authenticate', 'capability', 'login']
 		if command in commands:
 			getattr(self, 'do_' + command.upper(), None)(args, label)
 		else:
@@ -51,7 +63,10 @@ class serverProtocol(basic.LineOnlyReceiver):
 	def do_CAPABILITY(self, args, label):
 		self.sendLine('CAPABILITY IMAP4REV1 AUTH=LOGIN')
 		self.sendLine('OK CAPABILITY COMPLETE', label)
-		
+	
+	def do_LOGIN(self, args, label):
+		self.sendLine('Unrecognized authentication type')
+	
 	def do_AUTHENTICATE(self, args, label):
 		import base64
 		try:
