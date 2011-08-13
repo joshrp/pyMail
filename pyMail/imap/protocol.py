@@ -21,17 +21,25 @@ class serverProtocol(basic.LineOnlyReceiver):
 		console.log('(C): %s' % line)
 		self.state(line)
 
+	def state_SELECTED(self, line):
+		split = line.split(' ')
+		label = split[0]
+		command = split[1]
+		args = split[2:]
+		func = getattr(self, 'do_' + command.upper(), None)
+		if func is not None:
+			func(args, label)	
+	
 	def state_AUTH(self, line):
 		split = line.split(' ')
 		label = split[0]
 		command = split[1]
 		args = split[2:]
-		func = getattr(self, 'do_' + command, None)
+		func = getattr(self, 'do_' + command.upper(), None)
 		if func is not None:
-			func(args, label)	
+			func(args, label)				
 	
-	def do_lsub(self, args, label):
-		console.log('Starting LSUB')
+	def do_LSUB(self, args, label):
 		def descend(box, prefix=[]):
 			if len(prefix) > 0:
 				pre = '/'.join(prefix)+'/'
@@ -45,20 +53,58 @@ class serverProtocol(basic.LineOnlyReceiver):
 					descend(child, prefix)
 			
 		for box in self.user.mailboxes:
-			box = self.user.mailboxes[box]
+			box = self.user.mailboxes[int(box)]
 			descend(box)
 		self.sendLine('OK LSUB Complete', label)
+	
+	def do_LIST(self, args, label):
+		console.log('Starting LIST')
+		def descend(box, prefix=[]):
+			if len(prefix) > 0:
+				pre = '/'.join(prefix)+'/'
+			else:
+				pre = ''
+				
+			self.sendLine(str('LIST (%s) "/" "%s%s"' % (', '.join(box['flags']), pre, box['name'])), '*')
+			if 'children' in box:
+				prefix.append(box['name'])
+				for child in box['children']:
+					descend(child, prefix)
+			
+		for box in self.user.mailboxes:
+			box = self.user.mailboxes[box]
+			descend(box)
+		self.sendLine('OK LIST Complete', label)
+	
+	def do_SELECT(self, args, label):
+		boxName = args[0][1:-1]
+		mailbox = self.user.findMailbox(boxName)
+		if (mailbox == False):
+			self.sendLine('Mailbox Not Found', label)
+			return False
+			
+		self.state = self.state_SELECTED
+		self.sendLine('FLAGS (\Answered \Flagged \Draft \Deleted \Seen)', '*')
+		self.sendLine('OK [PERMANENTFLAGS (\Answered \Flagged \Draft \Deleted \Seen \*)', '*')
+		self.sendLine('%i EXISTS' % len(mailbox.messages), '*')
+		self.sendLine('OK [UIDNEXT %i]' % mailbox.nextId, '*')
+		self.sendLine('OK Select Completed', label)
 	
 	def state_UNAUTH(self, line):
 		split = line.split(' ')
 		label = split[0]
 		command = split[1]
 		args = split[2:]
-		commands = ['authenticate', 'capability', 'login']
-		if command in commands:
+		commands = ['authenticate', 'capability', 'login', 'logout']
+		if command.lower() in commands:
 			getattr(self, 'do_' + command.upper(), None)(args, label)
 		else:
 			self.sendLine('Must be authenticated', label)
+		
+	def do_LOGOUT(self, args, label):
+		self.sendLine('OK Bye', '*')
+		self.sendLine('OK Logout Complete', label)
+		self.transport.loseConnection()
 			
 	def do_CAPABILITY(self, args, label):
 		self.sendLine('CAPABILITY IMAP4REV1 AUTH=LOGIN')

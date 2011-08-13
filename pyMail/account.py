@@ -5,17 +5,18 @@ class Account:
 	def __init__(self, addr, domain=None, preLoad=None):
 		conf = config.instance
 		self.authd = False
-		if preLoad is not None:
-			self.__dict__ = preLoad
-		else:
+
+			
+		if isinstance(addr, int):
 			pass
-			#pull data from db	
-		if isinstance(addr, Address) == False:
+			#it's an id, grab from db based on 
+		elif isinstance(addr, Address) == False:
 			addr = Address(addr)
-		elif isinstance(addr, int):
-			pass
-			#it's an id, grab from db based on 	
-		
+			if preLoad is not None:
+				self.__dict__ = preLoad
+			else:
+				pass #pull data from db	
+				
 		if domain is None:
 			domain = conf.ResolveDomain(addr.domain)
 			
@@ -29,6 +30,28 @@ class Account:
 			self.authd = False
 		return self.authd
 
+	def findMailbox(self, name=None, root=None):
+		parents = []
+		if name is None:
+			return False
+			
+		if '/' in name:
+			parents = name.split('/');
+			name = parents[-1]
+		
+		for par in parents:
+			if par == '%':
+				pass
+			elif par == '*':
+				pass #Oh shi
+			elif type(par) != str:
+				break
+			elif par in self.mailboxes:
+				self.mailboxes[par]
+		return True
+			
+			
+		
 	def __getattr__(self, var):
 		if var == 'mailboxes':
 			import mailboxes
