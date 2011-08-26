@@ -12,10 +12,12 @@ class mailboxes:
 			return all mailboxes that match the IDs given
 			Main use: finding all mailboxes for a user from their array of IDs
 		"""
-		boxes = {}
+		#boxes = {}
+		boxes = []
 		for box in mailboxes.db.find({'_id': {'$in': ids}}):
 			if 'children' in box and len(box['children']) > 0:
 				box['flags'].append('\Haschildren')
-			box['_id'] = int(box['_id'])
-			boxes[box['_id']] = box	
+			#box['_id'] = int(box['_id'])
+			#boxes[box['_id']] = box
+			boxes.append(box)	
 		return boxes

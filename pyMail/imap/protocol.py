@@ -39,55 +39,29 @@ class serverProtocol(basic.LineOnlyReceiver):
 		if func is not None:
 			func(args, label)				
 	
-	def do_LSUB(self, args, label):
-		def descend(box, prefix=[]):
-			if len(prefix) > 0:
-				pre = '/'.join(prefix)+'/'
-			else:
-				pre = ''
-				
-			self.sendLine(str('LSUB (%s) "/" "%s%s"' % (', '.join(box['flags']), pre, box['name'])), '*')
-			if 'children' in box:
-				prefix.append(box['name'])
-				for child in box['children']:
-					descend(child, prefix)
-			
-		for box in self.user.mailboxes:
-			box = self.user.mailboxes[int(box)]
-			descend(box)
+	def do_LSUB(self, args, label):		
+		for box in self.user.findMailbox(args[0][1:-1], args[1][1:-1]):
+			self.sendLine(str('LSUB (%s) "/" "%s"' % (', '.join(box['flags']), box['path'])), '*')
 		self.sendLine('OK LSUB Complete', label)
 	
 	def do_LIST(self, args, label):
-		console.log('Starting LIST')
-		def descend(box, prefix=[]):
-			if len(prefix) > 0:
-				pre = '/'.join(prefix)+'/'
-			else:
-				pre = ''
-				
-			self.sendLine(str('LIST (%s) "/" "%s%s"' % (', '.join(box['flags']), pre, box['name'])), '*')
-			if 'children' in box:
-				prefix.append(box['name'])
-				for child in box['children']:
-					descend(child, prefix)
-			
-		for box in self.user.mailboxes:
-			box = self.user.mailboxes[box]
-			descend(box)
+		for box in self.user.findMailbox(args[0][1:-1], args[1][1:-1]):
+			self.sendLine(str('LIST (%s) "/" "%s"' % (', '.join(box['flags']), box['path'])), '*')
 		self.sendLine('OK LIST Complete', label)
 	
 	def do_SELECT(self, args, label):
 		boxName = args[0][1:-1]
 		mailbox = self.user.findMailbox(boxName)
-		if (mailbox == False):
-			self.sendLine('Mailbox Not Found', label)
+		if len(mailbox) == 0:
+			self.sendLine('NO Mailbox Not Found', label)
 			return False
-			
+		else:
+			mailbox = mailbox[0]
+			print mailbox
 		self.state = self.state_SELECTED
 		self.sendLine('FLAGS (\Answered \Flagged \Draft \Deleted \Seen)', '*')
 		self.sendLine('OK [PERMANENTFLAGS (\Answered \Flagged \Draft \Deleted \Seen \*)', '*')
-		self.sendLine('%i EXISTS' % len(mailbox.messages), '*')
-		self.sendLine('OK [UIDNEXT %i]' % mailbox.nextId, '*')
+		self.sendLine('%i EXISTS' % len(mailbox['messages']), '*')
 		self.sendLine('OK Select Completed', label)
 	
 	def state_UNAUTH(self, line):
@@ -112,6 +86,9 @@ class serverProtocol(basic.LineOnlyReceiver):
 	
 	def do_LOGIN(self, args, label):
 		self.sendLine('Unrecognized authentication type')
+		
+	def do_NOOP(self, args, label):
+		self.sendLine('OK NOOP Completed', label)
 	
 	def do_AUTHENTICATE(self, args, label):
 		import base64
